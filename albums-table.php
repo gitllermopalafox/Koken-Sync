@@ -115,6 +115,7 @@ class KokenSyncAlbumsTable extends WP_List_Table {
 			foreach ( $albums as $album ) {
 
 				$synced = $album->synced_time == '0000-00-00 00:00:00' ? false : true;
+				$published = $album->status == 'published' ? true : false;
 
 				echo '<tr data-album-id="' . $album->album_id . '">';
 
@@ -131,7 +132,7 @@ class KokenSyncAlbumsTable extends WP_List_Table {
 						case 'title':
 							?>
 								<td <?php echo $attributes ?>>
-									<?php if ( $synced ) : ?>
+									<?php if ( $synced && $published ) : ?>
 										<a target="_new" href="<?php echo home_url() ?>/portfolio/<?php echo $album->slug ?>/"><?php echo $album->title ?></a>
 									<?php else : ?>
 										<?php echo $album->title ?>
@@ -153,9 +154,9 @@ class KokenSyncAlbumsTable extends WP_List_Table {
 										<button href="#" class="KokenSyncButton KokenSyncAlbum">Sync now</button>
 		
 										<?php if ( $synced ) : ?>
-											<br /><small>Synced: <?php echo $album->synced_time ?></small>
+											<br /><small class="KokenSyncAlbumMessage">Synced: <?php echo $album->synced_time ?></small>
 										<?php else : ?>
-											<br /><small>Never synced</small>
+											<br /><small class="KokenSyncAlbumMessage">Never synced</small>
 										<?php endif ?>
 
 									<?php else : ?>

@@ -37,7 +37,7 @@
 			action: 'koken_sync_sync_albums'
 		};
 
-		$button.on( 'click', function () {
+		$button.on( 'click', function ( event ) {
 
 			// prevent concurrent sync actions
 			if ( $button.hasClass('active') ) {
@@ -45,15 +45,29 @@
 			}
 
 			$button.attr('value', 'Refreshing albums...');
-			$button.addClass('active' );
+			$button.attr('disabled', 'disabled');
 
-			$.post( ajaxurl, data, function ( response ) {
-				console.log( response );
-			} ).success( function () {
-				$button.attr( 'value', buttonValue );
-				$button.removeClass( 'active' );
-				location.reload();
-			} );
+			$.ajax({
+				type: 'POST',
+				url: ajaxurl,
+				data: data,
+				error: function ( jqXHR, textStatus, errorThrown ) {
+					console.log( jqXHR, textStatus, errorThrown );
+				},
+				success: function ( response ) {
+					var response = $.parseJSON( response );
+
+					if ( response.error ) {
+						console.log( response.message );
+						$button.attr( 'value', buttonValue );
+						$button.removeAttr('disabled');
+						return;
+					}
+					$button.attr( 'value', buttonValue );
+					$button.removeAttr('disabled');
+					location.reload();
+				}
+			});
 
 			return false;
 		} );
@@ -68,6 +82,8 @@
 		var $table = $('table.kokensyncalbums'),
 			$rows = $table.find('tbody tr');
 
+		var currentlySyncing = [];
+
 		$rows.on( 'click', function ( event ) {
 
 			// only work with clicks on button
@@ -76,23 +92,54 @@
 			}
 
 			var $button = $(this).find( '.KokenSyncAlbum' ),
-				buttonValue = $button.text();
+				buttonValue = $button.text(),
+				$message = $(this).find('.KokenSyncAlbumMessage'),
+				albumID = $(this).attr('data-album-id');
+
+			// check in to currentlySyncing
+			currentlySyncing.push( albumID );
 
 			var data = {
 				action: 'koken_sync_sync_album',
-				albumID: $(this).attr('data-album-id')
+				albumID: albumID
 			};
 
 			$button.text('Syncing album...');
-			$button.addClass('active');
+			$button.attr('disabled', 'disabled');
 
-			$.post( ajaxurl, data, function ( response ) {
-				//console.log(response);
-			} ).success( function () {
-				$button.text(buttonValue);
-				$button.removeClass('active');
-				location.reload();
-			} );
+			$.ajax({
+				type: 'POST',
+				url: ajaxurl,
+				data: data,
+				error: function ( jqXHR, textStatus, errorThrown ) {
+					console.log( jqXHR, textStatus, errorThrown );
+					return;
+				},
+				success: function ( response ) {
+					var response = $.parseJSON( response );
+
+					if ( response.error ) {
+						console.log( response.message );
+						$button.text(buttonValue);
+						$button.removeAttr('disabled');
+						$message.text( response.message );
+						return;
+					}
+
+					// remove from currentlySyncing
+					currentlySyncing = $.grep( currentlySyncing, function ( value ) {
+						return value != albumID;
+					} );
+
+					$button.text(buttonValue);
+					$button.removeAttr('disabled');
+
+					// reload when no more albums are syncing
+					if ( currentlySyncing.length === 0 ) {
+						location.reload();
+					}
+				}
+			});
 
 			return false;
 		} );
@@ -104,6 +151,8 @@
 		var $table = $('table.kokensyncalbums'),
 			$rows = $table.find('tbody tr');
 
+		var currentlyUpdating = [];
+
 		$rows.each( function () {
 
 			var $select = $(this).find('.KokenSyncStatusSelect'),
@@ -112,6 +161,9 @@
 
 			$select.on( 'change', function () {
 				statusValue = this.value;
+
+				// add to currentlyUpdating
+				currentlyUpdating.push( albumID );
 
 				setStatus( albumID, statusValue );
 			} );
@@ -125,11 +177,31 @@
 				status: statusValue
 			};
 
-			$.post( ajaxurl, data, function ( response ) {
-				console.log( response );
-			} ).success( function() {
-				
-			} );
+			$.ajax({
+				type: 'POST',
+				url: ajaxurl,
+				data: data,
+				error: function ( jqXHR, textStatus, errorThrown ) {
+					console.log( jqXHR, textStatus, errorThrown );
+				},
+				success: function ( response ) {
+					var response = $.parseJSON( response );
+
+					if ( response.error ) {
+						console.log( response.message );
+						return;
+					}
+
+					// remove from currentlyUpdating
+					currentlyUpdating = $.grep( currentlyUpdating, function ( value ) {
+						return value != albumID;
+					} );
+
+					if ( currentlyUpdating.length === 0 ) {
+						location.reload();
+					}
+				}
+			});
 		}
 
 	};

@@ -221,26 +221,29 @@ class KokenSync {
 		// keep track of album data
 		$album_data = array();
 
-		$albums_table = $this->albums_table;
+		$albums_table = KokenSync::table_name('albums');
 
 		$koken = new Koken( $this->koken_path );
 		$data = $koken->call('/albums');
 
 		// exit if no albums
 		if ( !isset( $data->albums ) ) {
-			echo 'No albums were returned from Koken';
+			echo json_encode(array(
+				'error' => true,
+				'message' => 'No albums were returned from Koken'
+			));
 			die();
 		}
 
 		foreach ( $data->albums as $album ) {
 
-			// keep track of synced albums
+			// add id to synced albums
 			$synced_albums[] = $album->id;
 
 			// set up album fields
 			$album_fields = array(
 				'album_id' => $album->id,
-				'time' => current_time( 'mysql' ),
+				'time' => current_time('mysql'),
 				'title' => esc_sql( $album->title ),
 				'slug' => $album->slug,
 				'summary' => esc_sql( $album->summary ),
@@ -253,6 +256,7 @@ class KokenSync {
 			$album_data[] = '("' . join('", "', $album_fields) . '")';
 		}
 
+		// format for query
 		$album_cols = array_keys( $album_fields );
 
 		$album_query = $wpdb->query( $wpdb->prepare("
@@ -266,10 +270,22 @@ class KokenSync {
 				description  = VALUES(description),
 				image_count  = VALUES(image_count),
 				modified     = VALUES(modified)
-			", null) );
+			", null ) );
+
+		if ( $album_query === false ) {
+			echo json_encode(array(
+				'error' => true,
+				'message' => 'There was an error inserting albums into albums table.'
+			));
+			die();
+		}
+		
+		echo json_encode(array(
+			'message' => "Albums refreshed. $album_query new albums added."
+		));
 
 		// clean up old albums
-		$this->clean_up( $synced_albums );
+		$this->clean_up_albums( $synced_albums );
 
 		die();
 	}
@@ -300,7 +316,10 @@ class KokenSync {
 
 		// exit if no images
 		if ( !isset( $data->content ) ) {
-			echo 'No images were returned from Koken';
+			echo json_encode(array(
+				'error' => true,
+				'message' => 'No images were returned from Koken.'
+			));
 			die();
 		}
 
@@ -348,26 +367,157 @@ class KokenSync {
 				cache_path   = VALUES(cache_path)
 			", null) );
 
+		if ( $image_query === false ) {
+			echo json_encode(array(
+				'error' => true,
+				'message' => 'There was a problem inserting images into the images table.'
+			));
+			die();
+		}
+
 		// update album synced time
-		$wpdb->update( $albums_table, array( 'synced_time' => $current_time ), array( 'album_id' => $album_id ) );
+		$album_synced_time_query = $wpdb->update( $albums_table, array( 'synced_time' => $current_time ), array( 'album_id' => $album_id ) );
+
+		if ( $album_synced_time_query === false ) {
+			echo json_encode(array(
+				'error' => true,
+				'message' => 'There was a problem updating the album sync time.'
+			));
+			die();
+		}
 
 		// set up album/image relationships
 		$albums_images_query = $wpdb->query( $wpdb->prepare("
 			INSERT INTO " . $albums_images_table . " (" . implode(',', $albums_images_cols) . ") VALUES" . implode(',', $albums_images_data) . "
-			", null) );
-//
-//		echo "
-//			UPDATE " . $albums_table . "
-//			SET status = '1'
-//			WHERE album_id = '" . $album_id . "'
-//		";
-//		die();
+			ON DUPLICATE KEY UPDATE
+				album_id = album_id,
+				image_id = image_id
+		") );
 
-		// clean up old albums
-		//$this->clean_up( $synced_images );
+		if ( $albums_images_query === false ) {
+			echo json_encode(array(
+				'error' => true,
+				'message' => 'There was a problem updating the album/image relationships.'
+			));
+			die();
+		}
+
+		// clean up images that are no longer in this album 
+		$cleanup = $this->clean_up_images( $synced_images, $album_id );
+
+		if ( is_array( $cleanup ) ) {
+			echo $cleanup;
+			die();
+		}
 
 		echo $albums_images_query;
 		die();
+	}
+
+	/**
+	 * Clean up images
+	 *
+	 * Checks albums_images for images that are in this album
+	 * Remove entry in albums_images
+	 * AND IF image is NOT in any other albums, remove the image too.
+	 */
+	function clean_up_images( $ids_to_preserve, $album_id ) {
+		global $wpdb;
+
+		$ids_to_remove = array();
+
+		$removed_ids_to_preserve = array();
+
+		$albums_images_table = KokenSync::table_name( 'albums_images' );
+		$images_table = KokenSync::table_name( 'images' );
+
+		// prepare $ids_to_preserve
+		$prepared_ids_to_preserve = join( ',', $ids_to_preserve );
+
+		// get ids to remove
+		$ids_to_remove_query = $wpdb->get_results( $wpdb->prepare("
+			SELECT image_id
+			FROM " . $albums_images_table . "
+			WHERE album_id = %d
+			AND image_id NOT IN ($prepared_ids_to_preserve)
+		", $album_id ) );
+
+		if ( $ids_to_remove_query === false ) {
+			$error = json_encode(array(
+				'error' => true,
+				'message' => 'There was a problem getting ids to remove.'
+			));
+		}
+		
+		foreach ( $ids_to_remove_query as $obj ) {
+			$ids_to_remove[] = $obj->image_id;
+		}
+
+		// prepare $ids_to_remove for query
+		$prepared_ids_to_remove = join( ',', $ids_to_remove );
+
+		// check $ids_to_remove for other album relationships
+		$removed_ids_to_preserve_query = $wpdb->get_results( $wpdb->prepare("
+			SELECT image_id
+			FROM " . $albums_images_table . "
+			WHERE image_id IN ($prepared_ids_to_remove)
+			AND album_id != %d
+		", $album_id ) );
+
+		if ( $removed_ids_to_preserve_query === false ) {
+			$error = json_encode(array(
+				'error' => true,
+				'message' => 'There was a problem getting album relationships for removed images.'
+			));
+		}
+
+		// for $ids_to_remove with other album relationships,
+		// add to $removed_ids_to_preserve
+		foreach ( $removed_ids_to_preserve_query as $id ) {
+			$removed_ids_to_preserve[] = $id->image_id;
+		}
+
+		// remove album/image relationships
+		$delete_relationships_query = $wpdb->query( $wpdb->prepare("
+			DELETE FROM " . $albums_images_table ."
+			WHERE album_id = %d
+			AND image_id IN ($prepared_ids_to_remove)
+		", $album_id ) );
+
+		if ( $delete_relationships_query === false ) {
+			$error = json_encode(array(
+				'error' => true,
+				'message' => 'There was a problem removing album/image relationships.'
+			));
+		}
+
+		// udpate $ids_to_remove by removing $removed_ids_to_preserve
+
+		foreach ( $ids_to_remove as $key => $id ) {
+			if ( in_array( $id, $removed_ids_to_preserve ) ) {
+				unset( $ids_to_remove[ $key ] );
+			}
+		}
+
+		// finally, delete images left over in $ids_to_remove
+		$prepared_ids_to_remove = join( ',', $ids_to_remove );
+		$delete_images_query = $wpdb->query( $wpdb->prepare("
+			FROM " . $images_table . "
+			WHERE image_id IN ($prepared_ids_to_remove)
+		") );
+
+		if ( $delete_images_query === false ) {
+			$error = json_encode(array(
+				'error' => true,
+				'message' => 'There was a problem deleting removed images.'
+			));
+		}
+
+		if ( isset( $error ) && !empty( $error ) ) {
+			return $error;
+		}
+
+		return true;
 	}
 
 	function ajax_set_album_status() {
@@ -397,28 +547,22 @@ class KokenSync {
 	}
 
 	/**
-	 * Clean up
+	 * Clean up albums
 	 *
-	 * Removes albums or images not included in $ids, after a sync
+	 * Removes albums included in $ids, after a sync
 	 */
-	function clean_up( $ids ) {
+	function clean_up_albums( $ids ) {
 		global $wpdb;
 
 		$ids = join( ',', $ids );
 
-		$albums_table = $this->albums_table;
+		$albums_table = KokenSync::table_name( 'albums' );
 
 		// clean up albums
 		$wpdb->query("
 			DELETE FROM " . $albums_table . "
 			WHERE album_id NOT IN ($ids)
 		");
-
-		// Clean up images
-//		$wpdb->query("
-//			DELETE FROM " . KokenSync::table_name('images') . "
-//			WHERE album_id NOT IN ($ids)
-//		");
 	}
 
 	/**
@@ -565,6 +709,7 @@ class KokenSync {
 	 * By id or slug
 	 *
 	 * TODO: add published check?
+	 * Right now this gets the first image that matches
 	 */
 	public function get_image( $args ) {
 		global $wpdb;
@@ -598,21 +743,6 @@ class KokenSync {
 		$image = $wpdb->get_row( $wpdb->prepare( $query, $params ) );
 
 		$image->cache_path = unserialize( $image->cache_path );
-
-		return $image;
-	}
-
-	public function old_get_image_by_slug( $image_slug, $album_id ) {
-
-		$cached_images = json_decode( get_transient( 'koken_sync_album_' . $album_id ) );
-
-		// search $cached_images by $slug
-		foreach ( $cached_images as $image ) {
-
-			if ( $image->slug == $image_slug ) {
-				return $image;
-			}
-		}
 
 		return $image;
 	}
