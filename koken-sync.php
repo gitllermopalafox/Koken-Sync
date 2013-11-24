@@ -61,6 +61,8 @@ class KokenSync {
 		$this->albums_table = $this->table_name( 'albums' );
 		$this->images_table = $this->table_name( 'images' );
 		$this->albums_images_table = $this->table_name( 'albums_images' );
+		$this->keywords_table = $this->table_name( 'keywords' );
+		$this->keywords_images_table = $this->table_name( 'keywords_images' );
 
 		// Activation
 		register_activation_hook( __FILE__, array( $this, 'activate' ) );
@@ -141,7 +143,28 @@ class KokenSync {
 					image_id bigint NOT NULL,
 					PRIMARY KEY  (album_id,image_id)
 				);"
-			)
+			),
+			array(
+				'name' => $this->keywords_table,
+				'query' => "
+					CREATE TABLE " . $this->keywords_table . " (
+					id mediumint(9) NOT NULL AUTO_INCREMENT,
+					keyword_id BINARY(16) NOT NULL,
+					slug VARCHAR(255) NOT NULL,
+					keyword tinytext NOT NULL,
+					UNIQUE KEY id (id),
+					UNIQUE KEY (keyword_id)
+				);"
+			),
+			array(
+				'name' => $this->keywords_images_table,
+				'query' => "
+					CREATE TABLE " . $this->keywords_images_table . " (
+					keyword_id BINARY(16) NOT NULL,
+					image_id bigint NOT NULL,
+					PRIMARY KEY  (keyword_id,image_id)
+				);"
+			),
 		);
 
 		// Run queries
@@ -302,6 +325,8 @@ class KokenSync {
 		// keep track of album data
 		$image_data = array();
 		$albums_images_data = array();
+		$keyword_data = array();
+		$keywords_images_data = array();
 
 		$current_time = current_time( 'mysql' );
 
@@ -310,17 +335,15 @@ class KokenSync {
 		$albums_table = KokenSync::table_name( 'albums' );
 		$images_table = KokenSync::table_name( 'images' );
 		$albums_images_table = KokenSync::table_name( 'albums_images' );
+		$keywords_table = KokenSync::table_name( 'keywords' );
+		$keywords_images_table = KokenSync::table_name( 'keywords_images' );
 
 		$koken = new Koken( $this->koken_path );
 		$data = $koken->call('/albums/' . $album_id . '/content');
 
 		// exit if no images
 		if ( !isset( $data->content ) ) {
-			echo json_encode(array(
-				'error' => true,
-				'message' => 'No images were returned from Koken.'
-			));
-			die();
+			$this->ajax_error('No images were returned from Koken.');
 		}
 
 		foreach ( $data->content as $image ) {
@@ -346,6 +369,19 @@ class KokenSync {
 				'image_id' => $image->id
 			);
 
+			foreach ( $image->tags as $keyword ) {
+				$keyword_slug = esc_sql( sanitize_title( $keyword ) );
+				$keyword_id = md5( $keyword_slug );
+
+				$keywords_images_data[] = '("' . $keyword_id . '", "' . $image->id . '")';
+
+				// ignore if keyword is already in $keywords
+				if ( !in_array( $keyword, $keywords ) ) {
+					$keyword_data[] = '("' . $keyword_id . '", "' . $keyword_slug . '", "' . $keyword . '")';
+					$keywords[] = $keyword;
+				}
+			}
+
 			// collect image data
 			$image_data[] = '("' . join('", "', $image_fields) . '")';
 			$albums_images_data[] = '("' . join('", "', $albums_images_fields) . '")';
@@ -368,22 +404,14 @@ class KokenSync {
 			", null) );
 
 		if ( $image_query === false ) {
-			echo json_encode(array(
-				'error' => true,
-				'message' => 'There was a problem inserting images into the images table.'
-			));
-			die();
+			$this->ajax_error('There was a problem inserting images into the images table.');
 		}
 
 		// update album synced time
 		$album_synced_time_query = $wpdb->update( $albums_table, array( 'synced_time' => $current_time ), array( 'album_id' => $album_id ) );
 
 		if ( $album_synced_time_query === false ) {
-			echo json_encode(array(
-				'error' => true,
-				'message' => 'There was a problem updating the album sync time.'
-			));
-			die();
+			$this->ajax_error('There was a problem updating the album sync time.');
 		}
 
 		// set up album/image relationships
@@ -395,11 +423,40 @@ class KokenSync {
 		") );
 
 		if ( $albums_images_query === false ) {
-			echo json_encode(array(
-				'error' => true,
-				'message' => 'There was a problem updating the album/image relationships.'
-			));
-			die();
+			$this->ajax_error('There was a problem updating the album/image relationships.');
+		}
+
+		// add keywords
+		$keywords_query = $wpdb->query( $wpdb->prepare("
+			INSERT INTO " . $keywords_table . " (keyword_id,slug,keyword) VALUES" . implode(',', $keyword_data) . "
+			ON DUPLICATE KEY UPDATE
+				keyword_id = keyword_id,
+				slug = slug,
+				keyword = keyword
+		") );
+
+		if ( $keywords_query === false ) {
+			$this->ajax_error('There was a problem updating keywords.');
+		}
+
+		// pre-clean keywords for synced images
+		$prepared_synced_images = join( ',', $synced_images );
+		$keywords_images_query = $wpdb->query( $wpdb->prepare("
+			DELETE FROM " . $keywords_images_table . "
+			WHERE image_id IN ($prepared_synced_images)
+		") );
+
+		if ( $keywords_images_query === false ) {
+			$this->ajax_error('There was a problem removing keywords before sync.');
+		}
+
+		$keywords_images_query = $wpdb->query( $wpdb->prepare("
+			INSERT IGNORE
+			INTO " . $keywords_images_table . " (keyword_id,image_id) VALUES" . implode(',', $keywords_images_data) . "
+		") );
+
+		if ( $keywords_images_query === false ) {
+			$this->ajax_error('There was a problem updating keyword/image relationships.');
 		}
 
 		// clean up images that are no longer in this album 
@@ -411,6 +468,17 @@ class KokenSync {
 		}
 
 		echo $albums_images_query;
+		die();
+	}
+
+	/**
+	 * Send an error to an AJAX action
+	 */
+	function ajax_error( $message ) {
+		echo json_encode(array(
+			'error' => true,
+			'message' => $message
+		));
 		die();
 	}
 
@@ -430,6 +498,8 @@ class KokenSync {
 
 		$albums_images_table = KokenSync::table_name( 'albums_images' );
 		$images_table = KokenSync::table_name( 'images' );
+		//$keywords_table = KokenSync::table_name( 'keywords' );
+		//$keywords_images_table = KokenSync::table_name( 'keywords_images' );
 
 		// prepare $ids_to_preserve
 		$prepared_ids_to_preserve = join( ',', $ids_to_preserve );
