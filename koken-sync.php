@@ -315,6 +315,8 @@ class KokenSync {
 
 	/**
 	 * Sync single album images from Koken
+	 *
+	 * TODO: clean this up and make more modular
 	 */
 	function ajax_sync_album() {
 		global $wpdb;
@@ -488,6 +490,8 @@ class KokenSync {
 	 * Checks albums_images for images that are in this album
 	 * Remove entry in albums_images
 	 * AND IF image is NOT in any other albums, remove the image too.
+	 *
+	 * TODO: clean up and make more modular
 	 */
 	function clean_up_images( $ids_to_preserve, $album_id ) {
 		global $wpdb;
@@ -498,8 +502,6 @@ class KokenSync {
 
 		$albums_images_table = KokenSync::table_name( 'albums_images' );
 		$images_table = KokenSync::table_name( 'images' );
-		//$keywords_table = KokenSync::table_name( 'keywords' );
-		//$keywords_images_table = KokenSync::table_name( 'keywords_images' );
 
 		// prepare $ids_to_preserve
 		$prepared_ids_to_preserve = join( ',', $ids_to_preserve );
@@ -590,6 +592,9 @@ class KokenSync {
 		return true;
 	}
 
+	/**
+	 * Set album status
+	 */
 	function ajax_set_album_status() {
 		global $wpdb;
 
@@ -757,7 +762,7 @@ class KokenSync {
 			return false;
 		}
 
-		$image_query = $wpdb->get_results( $wpdb->prepare("
+		$images = $wpdb->get_results( $wpdb->prepare("
 			SELECT images.*
 			FROM " . $albums_images_table . " albums_images
 			INNER JOIN " . $images_table . " images
@@ -765,16 +770,51 @@ class KokenSync {
 			WHERE albums_images.album_id = %d
 		", $album_id ) );
 
-		foreach ( $image_query as $image ) {
-			$image->cache_path = unserialize( $image->cache_path );
-			$images[] = $image;
+		return $images;
+	}
+
+	/**
+	 * Get images by keywords
+	 *
+	 * keywords array should be slugs.
+	 *
+	 * TODO: allow searches for multiple categories using AND
+	 */
+	public function get_images_by_keywords( $args ) {
+		global $wpdb;
+
+		$images_table = KokenSync::table_name('images');
+		$keywords_table = KokenSync::table_name('keywords');
+		$keywords_images_table = KokenSync::table_name('keywords_images');
+
+		$defaults = array(
+			'keywords' => array()
+		);
+		extract( wp_parse_args( $args, $defaults ) );
+
+		// $keywords are required
+		if ( empty( $keywords ) ) {
+			return false;
 		}
+
+		// prepare keywords for query
+		$keywords = "'" . join("','", $keywords) . "'";
+
+		$images = $wpdb->get_results( $wpdb->prepare("
+			SELECT DISTINCT images.*
+			FROM $keywords_table keywords
+			INNER JOIN $keywords_images_table keywords_images
+			ON keywords.keyword_id = keywords_images.keyword_id
+			INNER JOIN $images_table images
+			ON keywords_images.image_id = images.image_id
+			WHERE keywords.slug IN ($keywords)
+		") );
 
 		return $images;
 	}
 
 	/**
-	 * Get image
+	 * Get single image
 	 *
 	 * By id or slug
 	 *
@@ -817,6 +857,9 @@ class KokenSync {
 		return $image;
 	}
 
+	/**
+	 * Get image source
+	 */
 	public function get_image_src( $args ) {
 
 		$defaults = array(
@@ -830,8 +873,10 @@ class KokenSync {
 
 		extract( wp_parse_args( $args, $defaults ) );
 
-		$prefix = $image->cache_path->prefix;
-		$extension = $image->cache_path->extension;
+		$cache_path = unserialize( $image->cache_path );
+
+		$prefix = $cache_path->prefix;
+		$extension = $cache_path->extension;
 
 		$url = $prefix . $width . '.' . $height . '.' . $quality . '.' . $sharpening;
 
