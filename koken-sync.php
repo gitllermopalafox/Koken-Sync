@@ -772,9 +772,12 @@ class KokenSync {
 		global $wpdb;
 
 		$images = array();
+		$image_ids = array();
 
 		$albums_images_table = KokenSync::table_name('albums_images');
 		$images_table = KokenSync::table_name('images');
+		$keywords_table = KokenSync::table_name('keywords');
+		$keywords_images_table = KokenSync::table_name('keywords_images');
 
 		// get published albums
 		$album = KokenSync::get_album(array(
@@ -786,13 +789,39 @@ class KokenSync {
 			return false;
 		}
 
-		$images = $wpdb->get_results( $wpdb->prepare("
+		// get images
+		$image_query = $wpdb->get_results( $wpdb->prepare("
 			SELECT images.*
 			FROM " . $albums_images_table . " albums_images
 			INNER JOIN " . $images_table . " images
 			ON albums_images.image_id = images.image_id
 			WHERE albums_images.album_id = %d
 		", $album_id ) );
+
+		foreach ( $image_query as $image ) {
+			$image_ids[] = $image->image_id;
+		}
+
+		// get keywords
+		$keywords = $wpdb->get_results( $wpdb->prepare("
+			SELECT keywords_images.image_id, keywords.slug, keywords.keyword
+			FROM $keywords_images_table keywords_images
+			INNER JOIN $keywords_table keywords
+			ON keywords.keyword_id = keywords_images.keyword_id
+		") );
+
+		$image_keywords = array();
+		foreach ( $keywords as $keyword ) {
+			$image_keywords[ $keyword->image_id ][] = array(
+				'slug' => $keyword->slug,
+				'keyword' => $keyword->keyword
+			);
+		}
+
+		foreach ( $image_query as $image ) {
+			$image->keywords = $image_keywords[ $image->image_id ];
+			$images[] = $image;
+		}
 
 		return $images;
 	}
