@@ -341,14 +341,30 @@ class KokenSync {
 		$keywords_images_table = KokenSync::table_name( 'keywords_images' );
 
 		$koken = new Koken( $this->koken_path );
-		$data = $koken->call('/albums/' . $album_id . '/content');
+		$koken_data_path = '/albums/' . $album_id . '/content/';
+		$koken_data = array();
 
-		// exit if no images
+		// Run first api request
+		$data = $koken->call( $koken_data_path );
+
+		// exit if no data returned
 		if ( !isset( $data->content ) ) {
-			$this->ajax_error('No images were returned from Koken.');
+			$this->ajax_message( array( 'type' => 'error', 'message' => 'No images were returned from Koken.' ) );
 		}
 
-		foreach ( $data->content as $image ) {
+		// Koken returns a maximum of 100 items per request
+		// So if there are over 100 items in the first request, run more requests
+		$koken_requests = ceil( $data->total / 100 );
+
+		$koken_data = array_merge( $data->content, $koken_data );
+
+		for ( $i = 2; $i == $koken_requests; $i++ ) {
+			// Run additional api request
+			$data = $koken->call( $koken_data_path . 'page:' . $i );
+			$koken_data = array_merge( $data->content, $koken_data );
+		}
+
+		foreach ( $koken_data as $image ) {
 
 			// keep track of synced images
 			$synced_images[] = $image->id;
@@ -406,14 +422,14 @@ class KokenSync {
 			", null) );
 
 		if ( $image_query === false ) {
-			$this->ajax_error('There was a problem inserting images into the images table.');
+			$this->ajax_message( array( 'type' => 'error', 'message' => 'There was a problem inserting images into the images table.' ) );
 		}
 
 		// update album synced time
 		$album_synced_time_query = $wpdb->update( $albums_table, array( 'synced_time' => $current_time ), array( 'album_id' => $album_id ) );
 
 		if ( $album_synced_time_query === false ) {
-			$this->ajax_error('There was a problem updating the album sync time.');
+			$this->ajax_message( array( 'type' => 'error', 'message' => 'There was a problem updating the album sync time.' ) );
 		}
 
 		// set up album/image relationships
@@ -425,7 +441,7 @@ class KokenSync {
 		") );
 
 		if ( $albums_images_query === false ) {
-			$this->ajax_error('There was a problem updating the album/image relationships.');
+			$this->ajax_message( array( 'type' => 'error', 'message' => 'There was a problem updating the album/image relationships.' ) );
 		}
 
 		// add keywords
@@ -438,7 +454,7 @@ class KokenSync {
 		") );
 
 		if ( $keywords_query === false ) {
-			$this->ajax_error('There was a problem updating keywords.');
+			$this->ajax_message( array( 'type' => 'error', 'message' => 'There was a problem updating keywords.' ) );
 		}
 
 		// pre-clean keywords for synced images
@@ -449,7 +465,7 @@ class KokenSync {
 		") );
 
 		if ( $keywords_images_query === false ) {
-			$this->ajax_error('There was a problem removing keywords before sync.');
+			$this->ajax_message( array( 'type' => 'error', 'message' => 'There was a problem removing keywords before sync.' ) );
 		}
 
 		$keywords_images_query = $wpdb->query( $wpdb->prepare("
@@ -458,7 +474,7 @@ class KokenSync {
 		") );
 
 		if ( $keywords_images_query === false ) {
-			$this->ajax_error('There was a problem updating keyword/image relationships.');
+			$this->ajax_message( array( 'type' => 'error', 'message' => 'There was a problem updating keyword/image relationships.') );
 		}
 
 		// clean up images that are no longer in this album 
@@ -469,19 +485,27 @@ class KokenSync {
 			die();
 		}
 
-		echo $albums_images_query;
+		$this->ajax_message( array( 'message' => $albums_images_query . ' images updated.' ) );
 		die();
 	}
 
 	/**
-	 * Send an error to an AJAX action
+	 * Send a message to an AJAX action
 	 */
-	function ajax_error( $message ) {
+	function ajax_message( $args = array() ) {
+
+		extract( wp_parse_args( $args, array(
+			'type' => 'message'
+		) ) );
+
 		echo json_encode(array(
-			'error' => true,
+			'type' => $type,
 			'message' => $message
 		));
-		die();
+
+		if ( $type == 'error' ) {
+			die();
+		}
 	}
 
 	/**
@@ -651,7 +675,7 @@ class KokenSync {
 	 * Pass 'synced' => false to get all albums regardless of synced_time
 	 * Pass 'status' => false to get all albums regardless of status
 	 */
-	public function get_albums( $args ) {
+	public function get_albums( $args = array() ) {
 		global $wpdb;
 
 		$query_args = '';
@@ -694,7 +718,7 @@ class KokenSync {
 	 * This is the one entry point for getting a single album
 	 * By default it returns synced, published albums
 	 */
-	public function get_album( $args ) {
+	public function get_album( $args = array() ) {
 		global $wpdb;
 
 		$albums_table = KokenSync::table_name( 'albums' );
@@ -780,7 +804,7 @@ class KokenSync {
 	 *
 	 * TODO: allow searches for multiple categories using AND
 	 */
-	public function get_images_by_keywords( $args ) {
+	public function get_images_by_keywords( $args = array() ) {
 		global $wpdb;
 
 		$images_table = KokenSync::table_name('images');
@@ -821,7 +845,7 @@ class KokenSync {
 	 * TODO: add published check?
 	 * Right now this gets the first image that matches
 	 */
-	public function get_image( $args ) {
+	public function get_image( $args = array() ) {
 		global $wpdb;
 
 		$images_table = KokenSync::table_name('images');
@@ -860,7 +884,7 @@ class KokenSync {
 	/**
 	 * Get image source
 	 */
-	public function get_image_src( $args ) {
+	public function get_image_src( $args = array() ) {
 
 		$defaults = array(
 			'image' => null,

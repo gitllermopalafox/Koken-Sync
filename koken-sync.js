@@ -57,7 +57,7 @@
 				success: function ( response ) {
 					var response = $.parseJSON( response );
 
-					if ( response.error ) {
+					if ( response.type === 'error' ) {
 						console.log( response.message );
 						$button.attr( 'value', buttonValue );
 						$button.removeAttr('disabled');
@@ -118,7 +118,7 @@
 				success: function ( response ) {
 					var response = $.parseJSON( response );
 
-					if ( response.error ) {
+					if ( response.type === 'error' ) {
 						console.log( response.message );
 						$button.text(buttonValue);
 						$button.removeAttr('disabled');
@@ -133,6 +133,8 @@
 
 					$button.text(buttonValue);
 					$button.removeAttr('disabled');
+
+					console.log( response.message );
 
 					// reload when no more albums are syncing
 					if ( currentlySyncing.length === 0 ) {
@@ -187,7 +189,7 @@
 				success: function ( response ) {
 					var response = $.parseJSON( response );
 
-					if ( response.error ) {
+					if ( response.type === 'error' ) {
 						console.log( response.message );
 						return;
 					}
