@@ -670,33 +670,80 @@ class KokenSync {
 	}
 
 	/**
-	 * Get all images
+	 * Get images with keywords and albums
 	 */
 	public function get_images( $args = array() ) {
 
 		global $wpdb;
 
-//		extract( $args, array() );
-//
-//
-//
-//		$images = $wpdb->get_results( $wpdb->prepare("
-//			SELECT images.*
-//			FROM " . self::table_name('images') . " images
-//			INNER JOIN " . self::table_name('albums_images') . " albums_images
-//			ON images.image_id = albums_images.image_id
-//			INNER JOIN " . self::table_name('albums') . " albums
-//			ON albums_images.album_id = albums.album_id
-//			WHERE albums.status = 'published'
-//		") );
-//
-//		print count($images);
-//
-//		print '<pre>';
-//		print_r($images);
-//		print '</pre>';
-//
-//		return $images;
+		// Get published albums
+		$albums = self::get_albums();
+
+		// Get images
+		$images = $wpdb->get_results( $wpdb->prepare("
+			SELECT images.*, albums.album_id
+			FROM " . self::table_name('images') . " images
+			INNER JOIN " . self::table_name('albums_images') . " albums_images
+			ON images.image_id = albums_images.image_id
+			INNER JOIN " . self::table_name('albums') . " albums
+			ON albums_images.album_id = albums.album_id
+			WHERE albums.status = 'published'
+		") );
+
+		// If I want more than the album ID, 
+		// do a new query like the keywords query below.
+
+		// Collect image ids
+		$image_ids = array();
+
+		foreach ( $images as $image ) {
+			$image_ids[] = $image->image_id;
+		}
+
+		$image_ids = array_unique( $image_ids );
+
+		// Get keywords
+		$keywords = $wpdb->get_results( $wpdb->prepare("
+			SELECT keywords.*, keywords_images.image_id
+			FROM " . self::table_name('keywords_images') . " keywords_images
+			INNER JOIN " . self::table_name('keywords') . " keywords
+			ON keywords_images.keyword_id = keywords.keyword_id
+			WHERE keywords_images.image_id IN (" . implode(',', $image_ids) . ")
+		") );
+
+		$prepared_images = array();
+
+		foreach ( $images as $image ) {
+
+			if ( array_key_exists( $image->image_id, $prepared_images ) ) {
+
+				$prepared_images[ $image->image_id ]->albums[] = $image->album_id;
+
+				continue;
+
+			}
+
+			$image->keywords = array();
+
+			$image->albums = array( $image->album_id );
+
+			unset( $image->album_id );
+
+			$prepared_images[$image->image_id] = $image;
+
+		}
+
+		foreach ( $keywords as $keyword ) {
+
+			$image_id = $keyword->image_id;
+
+			unset( $keyword->image_id );
+
+			$prepared_images[ $image_id ]->keywords[] = $keyword;
+
+		}
+
+		return $prepared_images;
 	}
 
 	/**
@@ -813,7 +860,7 @@ class KokenSync {
 		$keywords_table = KokenSync::table_name('keywords');
 		$keywords_images_table = KokenSync::table_name('keywords_images');
 
-		// get published albums
+		// get album
 		$album = KokenSync::get_album(array(
 			'id' => $album_id
 		));
