@@ -519,6 +519,10 @@ class KokenSyncAdmin {
 			die();
 		}
 
+		echo json_encode(array(
+			'message' => "$album_id was set to $status"
+		));
+
 		die();
 	}
 

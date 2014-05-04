@@ -6,9 +6,6 @@
 
 	KokenSync.prototype = {};
 
-	KokenSync.prototype.settings = {
-	};
-
 	KokenSync.prototype.init = function ( options ) {
 		
 		this.options = $.extend( true, {}, this.settings, options );
