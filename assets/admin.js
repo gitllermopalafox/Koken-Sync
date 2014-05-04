@@ -14,7 +14,7 @@
 		this.options = $.extend( true, {}, this.settings, options );
 
 		// sync albums
-		this.syncAlbums();
+		this.refreshAlbums();
 
 		// sync album
 		this.syncAlbum();
@@ -26,7 +26,7 @@
 	/**
 	 * Sync albums
 	 */
-	KokenSync.prototype.syncAlbums = function () {
+	KokenSync.prototype.refreshAlbums = function () {
 		var _this = this;
 
 		var $button = $('#KokenSyncSyncAlbums');
@@ -34,7 +34,7 @@
 		var buttonValue = $button.text();
 
 		var data = {
-			action: 'koken_sync_sync_albums'
+			action: 'koken_sync_refresh_albums'
 		};
 
 		$button.on( 'click', function ( event ) {
@@ -55,6 +55,7 @@
 					console.log( jqXHR, textStatus, errorThrown );
 				},
 				success: function ( response ) {
+
 					var response = $.parseJSON( response );
 
 					if ( response.type === 'error' ) {
@@ -116,6 +117,7 @@
 					return;
 				},
 				success: function ( response ) {
+
 					var response = $.parseJSON( response );
 
 					if ( response.type === 'error' ) {
@@ -187,6 +189,7 @@
 					console.log( jqXHR, textStatus, errorThrown );
 				},
 				success: function ( response ) {
+
 					var response = $.parseJSON( response );
 
 					if ( response.type === 'error' ) {
