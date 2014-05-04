@@ -48,11 +48,7 @@ class KokenSyncAlbumsTable extends WP_List_Table {
 
 		if ( $which == 'top' ) {
 			?>
-				<form action="" method="post">
-					<p class="submit" style="display: inline;">
-						<input type="submit" id="KokenSyncSyncAlbums" value="Refresh albums" />
-					</p>
-				</form>
+				<button id="KokenSyncSyncAlbums">Refresh albums</button>
 			<?
 		}
 	}

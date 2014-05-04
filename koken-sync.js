@@ -31,7 +31,7 @@
 
 		var $button = $('#KokenSyncSyncAlbums');
 
-		var buttonValue = $button.attr('value');
+		var buttonValue = $button.text();
 
 		var data = {
 			action: 'koken_sync_sync_albums'
@@ -44,7 +44,7 @@
 				return;
 			}
 
-			$button.attr('value', 'Refreshing albums...');
+			$button.text('Refreshing albums...');
 			$button.attr('disabled', 'disabled');
 
 			$.ajax({
@@ -59,11 +59,11 @@
 
 					if ( response.type === 'error' ) {
 						console.log( response.message );
-						$button.attr( 'value', buttonValue );
+						$button.text( buttonValue );
 						$button.removeAttr('disabled');
 						return;
 					}
-					$button.attr( 'value', buttonValue );
+					$button.text( buttonValue );
 					$button.removeAttr('disabled');
 					location.reload();
 				}

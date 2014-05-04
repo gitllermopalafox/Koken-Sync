@@ -27,7 +27,7 @@ class KokenSyncOptions {
 	 * Add pages to the plugin menu
 	 */
 	public function add_pages() {
-		add_menu_page('Koken Sync', 'Koken', 'manage_options', 'kokensync-options', array(&$this, 'display_albums_page'), null, 30);
+		add_menu_page('Koken Sync', 'Koken', 'manage_options', 'kokensync-options', array(&$this, 'display_albums_page'), 'dashicons-format-gallery', 30);
 		add_submenu_page('kokensync-options', 'Albums', 'Albums', 'manage_options', 'kokensync-options', array( &$this, 'display_albums_page' ) );
 		add_submenu_page('kokensync-options', 'Settings', 'Settings', 'manage_options', 'kokensync-settings', array( &$this, 'display_settings_page' ) );
 	}

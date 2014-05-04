@@ -45,7 +45,8 @@ class KokenSync {
 
 	public $plugin_location;
 
-	public $koken_path = 'http://expeditionaryart.elcontraption.com/koken';
+	// TODO: add this as an admin option
+	public $koken_path = 'http://elcontraption.com/koken';
 
 	/**
 	 * KokenSync constructor
@@ -53,7 +54,7 @@ class KokenSync {
 	public function __construct() {
 
 		// Define version constant
-		define( 'KOKEN_SYNC_VERSION', $this->version );
+		//define( 'KOKEN_SYNC_VERSION', $this->version );
 
 		// Get plugin URL
 		$this->plugin_url = plugins_url( '', __FILE__ ) . '/';
@@ -444,37 +445,41 @@ class KokenSync {
 			$this->ajax_message( array( 'type' => 'error', 'message' => 'There was a problem updating the album/image relationships.' ) );
 		}
 
-		// add keywords
-		$keywords_query = $wpdb->query( $wpdb->prepare("
-			INSERT INTO " . $keywords_table . " (keyword_id,slug,keyword) VALUES" . implode(',', $keyword_data) . "
-			ON DUPLICATE KEY UPDATE
-				keyword_id = keyword_id,
-				slug = slug,
-				keyword = keyword
-		") );
+		if ( ! empty( $keyword_data ) ) {
 
-		if ( $keywords_query === false ) {
-			$this->ajax_message( array( 'type' => 'error', 'message' => 'There was a problem updating keywords.' ) );
-		}
+			// add keywords
+			$keywords_query = $wpdb->query( $wpdb->prepare("
+				INSERT INTO " . $keywords_table . " (keyword_id,slug,keyword) VALUES" . implode(',', $keyword_data) . "
+				ON DUPLICATE KEY UPDATE
+					keyword_id = keyword_id,
+					slug = slug,
+					keyword = keyword
+			") );
 
-		// pre-clean keywords for synced images
-		$prepared_synced_images = join( ',', $synced_images );
-		$keywords_images_query = $wpdb->query( $wpdb->prepare("
-			DELETE FROM " . $keywords_images_table . "
-			WHERE image_id IN ($prepared_synced_images)
-		") );
+			if ( $keywords_query === false ) {
+				$this->ajax_message( array( 'type' => 'error', 'message' => 'There was a problem updating keywords.' ) );
+			}
 
-		if ( $keywords_images_query === false ) {
-			$this->ajax_message( array( 'type' => 'error', 'message' => 'There was a problem removing keywords before sync.' ) );
-		}
+			// pre-clean keywords for synced images
+			$prepared_synced_images = join( ',', $synced_images );
+			$keywords_images_query = $wpdb->query( $wpdb->prepare("
+				DELETE FROM " . $keywords_images_table . "
+				WHERE image_id IN ($prepared_synced_images)
+			") );
 
-		$keywords_images_query = $wpdb->query( $wpdb->prepare("
-			INSERT IGNORE
-			INTO " . $keywords_images_table . " (keyword_id,image_id) VALUES" . implode(',', $keywords_images_data) . "
-		") );
+			if ( $keywords_images_query === false ) {
+				$this->ajax_message( array( 'type' => 'error', 'message' => 'There was a problem removing keywords before sync.' ) );
+			}
 
-		if ( $keywords_images_query === false ) {
-			$this->ajax_message( array( 'type' => 'error', 'message' => 'There was a problem updating keyword/image relationships.') );
+			$keywords_images_query = $wpdb->query( $wpdb->prepare("
+				INSERT IGNORE
+				INTO " . $keywords_images_table . " (keyword_id,image_id) VALUES" . implode(',', $keywords_images_data) . "
+			") );
+
+			if ( $keywords_images_query === false ) {
+				$this->ajax_message( array( 'type' => 'error', 'message' => 'There was a problem updating keyword/image relationships.') );
+			}
+
 		}
 
 		// clean up images that are no longer in this album 
@@ -665,6 +670,36 @@ class KokenSync {
 	}
 
 	/**
+	 * Get all images
+	 */
+	public function get_images( $args = array() ) {
+
+		global $wpdb;
+
+//		extract( $args, array() );
+//
+//
+//
+//		$images = $wpdb->get_results( $wpdb->prepare("
+//			SELECT images.*
+//			FROM " . self::table_name('images') . " images
+//			INNER JOIN " . self::table_name('albums_images') . " albums_images
+//			ON images.image_id = albums_images.image_id
+//			INNER JOIN " . self::table_name('albums') . " albums
+//			ON albums_images.album_id = albums.album_id
+//			WHERE albums.status = 'published'
+//		") );
+//
+//		print count($images);
+//
+//		print '<pre>';
+//		print_r($images);
+//		print '</pre>';
+//
+//		return $images;
+	}
+
+	/**
 	 * Get all albums
 	 *
 	 * This is the ONE entry point for getting albums
@@ -680,11 +715,10 @@ class KokenSync {
 
 		$query_args = '';
 
-		$defaults = array(
+		extract( wp_parse_args( $args, array(
 			'synced' => true,
 			'status' => 'published'
-		);
-		extract( wp_parse_args( $args, $defaults ) );
+		) ) );
 
 		if ( $synced ) {
 			$query_args .= " WHERE synced_time != '0000-00-00 00:00:00'";
