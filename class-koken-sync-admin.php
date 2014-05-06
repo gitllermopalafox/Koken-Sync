@@ -94,8 +94,8 @@ class KokenSyncAdmin {
 	public function add_admin_menu() {
 
 		$this->plugin_screen_hook_suffix = add_menu_page(
-			'Koken',
-			'Koken',
+			'Koken Sync',
+			'Koken Sync',
 			'manage_options',
 			$this->plugin_slug,
 			array( $this, 'display_admin_page' ),
