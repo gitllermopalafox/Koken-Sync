@@ -201,7 +201,7 @@ class KokenSync {
 		$query = "SELECT * FROM " . self::table_name('albums');
 		$params = array();
 
-		// Convenience WHERE so we can use ANDs later
+		// Convenience WHERE so we can use ANDs below
 		$query .= " WHERE id > 0";
 
 		if ( $synced ) {
@@ -218,12 +218,118 @@ class KokenSync {
 		}
 
 		if ( ! empty( $params ) ) {
-			$params = implode(',', $params);
-			$query = $wpdb->prepare( $query, $params );
+			$query = $wpdb->prepare( $query, implode(',', $params) );
 		}
 
 		return $wpdb->get_results( $query );
 	}
+
+	/**
+	 * Get images
+	 */
+	public static function get_images( $args = array() ) {
+
+		global $wpdb;
+
+		extract( wp_parse_args( $args, array(
+			'orderby' => 'image_id',
+			'order' => 'ASC',
+
+			// Get images from specific album
+			'album_id' => NULL,
+			'album_slug' => NULL,
+
+			// Eager load associations: array('albums', 'keywords')
+			'load' => array()
+		) ) );
+
+		$query = "
+			SELECT DISTINCT images.* 
+			FROM " . self::table_name('images') . " images
+			INNER JOIN " . self::table_name('albums_images') . " albums_images
+			ON images.image_id = albums_images.image_id
+			INNER JOIN " . self::table_name('albums') . " albums
+			ON albums_images.album_id = albums.album_id
+			WHERE albums.status = 'published'
+		";
+		$params = array();
+
+		if ( $album_id ) {
+			$query .= " AND albums.album_id = %d";
+			$params[] = $album_id;
+		}
+
+		if ( ! $album_id && $album_slug ) {
+			$query .= " AND albums.slug = %s";
+			$params[] = $album_slug;
+		}
+
+		if ( ! empty( $params ) ) {
+			$query = $wpdb->prepare( $query, implode(',', $params) );
+		}
+
+		// Run image query
+		$images = $wpdb->get_results( $query );
+
+		if ( empty( $images ) ) {
+			return;
+		}
+
+		// Eager load associations?
+		if ( ! empty( $load ) ) {
+			$images = self::load_image_associations( $images, $load );
+		}
+
+		return $images;
+	}
+
+	/**
+	 * Load image associations
+	 */
+	protected static function load_image_associations( $images, $associations ) {
+
+		global $wpdb;
+
+		$image_ids = array();
+		$results = array();
+		$collected_images = array();
+
+		foreach ( $images as $image ) {
+			$image_ids[] = $image->image_id;
+			$collected_images[ $image->image_id ] = $image;
+		}
+
+		// Run queries for each association
+		foreach ( $associations as $type ) {
+
+			$singular_type = rtrim( $type, 's' );
+
+			$results[ $type ] = $wpdb->get_results("
+				SELECT " . $type . ".*, " . $type . "_images.image_id
+				FROM " . self::table_name( $type . '_images' ) . " " . $type . "_images 
+				INNER JOIN " . self::table_name( $type ) . " " . $type . " 
+				ON " . $type . "_images." . $singular_type . "_id = " . $type . "." . $singular_type . "_id 
+				WHERE " . $type . "_images.image_id IN (" . implode( ',', $image_ids ) . ")
+			");
+		}
+
+		if ( empty( $results ) ) {
+			return;
+		}
+
+		foreach ( $results as $type => $values ) {
+
+			foreach ( $values as $value ) {
+
+				$collected_images[ $value->image_id ]->{$type}[] = $value;
+
+			}
+
+		}
+
+		return array_values( $collected_images );
+	}
+
 
 	/**
 	 * Get single album by id
@@ -324,109 +430,6 @@ class KokenSync {
 		}
 
 		return $images;
-	}
-
-	/**
-	 * Get images with keywords and albums
-	 */
-	public static function get_images( $args = array() ) {
-
-		global $wpdb;
-
-		extract( wp_parse_args( $args, array(
-			'album_id' => NULL,
-			'album_slug' => NULL
-		) ) );
-
-		$query = "SELECT image.*";
-
-		// Get published albums
-		$albums = self::get_albums();
-
-		// Get images
-		$images = $wpdb->get_results("
-			SELECT images.*, albums.album_id
-			FROM " . self::table_name('images') . " images
-			INNER JOIN " . self::table_name('albums_images') . " albums_images
-			ON images.image_id = albums_images.image_id
-			INNER JOIN " . self::table_name('albums') . " albums
-			ON albums_images.album_id = albums.album_id
-			WHERE albums.status = 'published'
-		");
-
-		// Return if query error or no images
-		if ( $images === false || empty( $images ) ) {
-			return;
-		}
-
-		// Collect image ids
-		$image_ids = array();
-
-		foreach ( $images as $image ) {
-			$image_ids[] = $image->image_id;
-		}
-
-		$image_ids = array_unique( $image_ids );
-
-		// Get albums
-		$albums = $wpdb->get_results("
-			SELECT albums.*, albums_images.image_id
-			FROM " . self::table_name('albums_images') . " albums_images
-			INNER JOIN " . self::table_name('albums') . " albums
-			ON albums_images.album_id = albums.album_id
-			WHERE albums_images.image_id IN (" . implode(',', $image_ids) . ")
-		");
-
-		// Get keywords
-		$keywords = $wpdb->get_results("
-			SELECT keywords.*, keywords_images.image_id
-			FROM " . self::table_name('keywords_images') . " keywords_images
-			INNER JOIN " . self::table_name('keywords') . " keywords
-			ON keywords_images.keyword_id = keywords.keyword_id
-			WHERE keywords_images.image_id IN (" . implode(',', $image_ids) . ")
-		");
-
-		$prepared_images = array();
-
-		foreach ( $images as $image ) {
-
-			if ( array_key_exists( $image->image_id , $prepared_images ) ) {
-
-				continue;
-
-			}
-
-			$image->keywords = array();
-			$image->albums = array();
-
-			unset( $image->album_id );
-
-			$prepared_images[ $image->image_id ] = $image;
-		}
-
-		// Incorporate keywords
-		foreach ( $keywords as $keyword ) {
-
-			$image_id = $keyword->image_id;
-
-			unset( $keyword->image_id );
-
-			$prepared_images[ $image_id ]->keywords[] = $keyword;
-
-		}
-
-		// Incorporate albums
-		foreach ( $albums as $album ) {
-
-			$image_id = $album->image_id;
-
-			unset( $album->image_id );
-
-			$prepared_images[ $image_id ]->albums[] = $album;
-
-		}
-
-		return $prepared_images;
 	}
 
 	/**
