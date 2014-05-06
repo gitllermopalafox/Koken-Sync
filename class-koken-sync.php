@@ -191,8 +191,6 @@ class KokenSync {
 
 		global $wpdb;
 
-		$query_args = '';
-
 		extract( wp_parse_args( $args, array(
 			'synced' => true,
 			'status' => 'published',
@@ -200,34 +198,132 @@ class KokenSync {
 			'order' => 'ASC'
 		) ) );
 
+		$query = "SELECT * FROM " . self::table_name('albums');
+		$params = array();
+
+		// Convenience WHERE so we can use ANDs later
+		$query .= " WHERE id > 0";
+
 		if ( $synced ) {
-			$query_args .= " WHERE synced_time != '0000-00-00 00:00:00'";
+			$query .= " AND synced_time != '0000-00-00 00:00:00'";
 		}
 
 		if ( $status ) {
-
-			if ( $synced ) {
-				$query_args .= " AND";
-			} else {
-				$query_args .= " WHERE";
-			}
-
-			$query_args .= " status = '" . $status . "'";
+			$query .= " AND status = %s";
+			$params[] = $status;
 		}
 
 		if ( $orderby ) {
-			$query_args .= " ORDER BY " . $orderby . " " . $order;
+			$query .= " ORDER BY " . $orderby . " " . $order;
 		}
 
-		$albums_table = self::table_name('albums');
+		if ( ! empty( $params ) ) {
+			$params = implode(',', $params);
+			$query = $wpdb->prepare( $query, $params );
+		}
 
-		$albums = $wpdb->get_results("
-			SELECT *
-			FROM " . $albums_table
-			. $query_args
-		);
+		return $wpdb->get_results( $query );
+	}
 
-		return $albums;
+	/**
+	 * Get single album by id
+	 *
+	 * This is the one entry point for getting a single album
+	 * By default it returns synced, published albums
+	 */
+	public static function get_album( $args = array() ) {
+
+		global $wpdb;
+
+		extract( wp_parse_args( $args, array(
+			'id' => null,
+			'slug' => null,
+			'synced' => true,
+			'status' => 'published'
+		) ) );
+
+		// either $id or $slug must be present
+		if ( !$id && !$slug ) {
+			return false;
+		}
+
+		$query = "SELECT * FROM " . self::table_name('albums') . " WHERE ";
+		$param = '';
+
+		if ( $id ) {
+			$query .= "album_id = %d ";
+			$param = $id;
+		} else {
+			$query .= "slug = %s ";
+			$param = $slug;
+		}
+
+		$query .= "AND status = 'published'";
+
+		return $wpdb->get_row( $wpdb->prepare( $query, $param ) );
+	}
+
+	/**
+	 * Get album images
+	 */
+	public static function get_album_images( $args = array() ) {
+		
+		global $wpdb;
+
+		extract( wp_parse_args( $args, array(
+			'id' => null,
+			'slug' => null
+		) ) );
+
+		$images = array();
+		$image_ids = array();
+
+		// get album
+		$album = KokenSync::get_album(array(
+			'id' => $id,
+			'slug' => $slug
+		));
+
+		// check that album is published
+		if ( $album->status !== 'published' ) {
+			return false;
+		}
+
+		// get images
+		$image_query = $wpdb->get_results( $wpdb->prepare("
+			SELECT images.*
+			FROM " . self::table_name('albums_images') . " albums_images
+			INNER JOIN " . self::table_name('images') . " images
+			ON albums_images.image_id = images.image_id
+			WHERE albums_images.album_id = %d
+		", $album->album_id ) );
+
+		foreach ( $image_query as $image ) {
+			$image_ids[] = $image->image_id;
+		}
+
+		// get keywords
+		$keywords = $wpdb->get_results("
+			SELECT keywords_images.image_id, keywords.slug, keywords.keyword
+			FROM " . self::table_name('keywords_images') . " keywords_images
+			INNER JOIN " . self::table_name('keywords') . " keywords
+			ON keywords.keyword_id = keywords_images.keyword_id
+		");
+
+		$image_keywords = array();
+		foreach ( $keywords as $keyword ) {
+			$image_keywords[ $keyword->image_id ][] = array(
+				'slug' => $keyword->slug,
+				'keyword' => $keyword->keyword
+			);
+		}
+
+		foreach ( $image_query as $image ) {
+			$image->keywords = $image_keywords[ $image->image_id ];
+			$images[] = $image;
+		}
+
+		return $images;
 	}
 
 	/**
@@ -236,6 +332,13 @@ class KokenSync {
 	public static function get_images( $args = array() ) {
 
 		global $wpdb;
+
+		extract( wp_parse_args( $args, array(
+			'album_id' => NULL,
+			'album_slug' => NULL
+		) ) );
+
+		$query = "SELECT image.*";
 
 		// Get published albums
 		$albums = self::get_albums();
