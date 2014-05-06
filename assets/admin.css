@@ -8,7 +8,7 @@
 }
 
 .ui-state-highlight {
-	background: rgba(0,0,0,0.25);
+	background: #ddd;
 }
 
 .ui-sortable-helper th.column-order,
