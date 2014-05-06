@@ -87,6 +87,7 @@ class KokenSync {
 					CREATE TABLE " . self::table_name('albums') . " (
 					id mediumint(9) NOT NULL AUTO_INCREMENT,
 					album_id bigint NOT NULL,
+					album_order mediumint(9) NOT NULL,
 					time datetime DEFAULT '0000-00-00 00:00:00' NOT NULL,
 					title tinytext NOT NULL,
 					slug tinytext NOT NULL,
@@ -194,7 +195,9 @@ class KokenSync {
 
 		extract( wp_parse_args( $args, array(
 			'synced' => true,
-			'status' => 'published'
+			'status' => 'published',
+			'orderby' => 'album_order',
+			'order' => 'ASC'
 		) ) );
 
 		if ( $synced ) {
@@ -210,6 +213,10 @@ class KokenSync {
 			}
 
 			$query_args .= " status = '" . $status . "'";
+		}
+
+		if ( $orderby ) {
+			$query_args .= " ORDER BY " . $orderby . " " . $order;
 		}
 
 		$albums_table = self::table_name('albums');
@@ -243,6 +250,11 @@ class KokenSync {
 			ON albums_images.album_id = albums.album_id
 			WHERE albums.status = 'published'
 		");
+
+		// Return if query error or no images
+		if ( $images === false || empty( $images ) ) {
+			return;
+		}
 
 		// Collect image ids
 		$image_ids = array();

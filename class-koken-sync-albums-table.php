@@ -33,6 +33,7 @@ class KokenSyncAlbumsTable extends WP_List_Table {
 
 	function get_columns() {
 		$columns = array(
+			'order' => __( 'Order' ),
 			'title' => __( 'Album title' ),
 			'images' => __( 'Images' ),
 			'sync' => __( 'Sync' ),
@@ -67,7 +68,8 @@ class KokenSyncAlbumsTable extends WP_List_Table {
 
 		$data = KokenSync::get_albums(array(
 			'synced' => false,
-			'status' => false
+			'status' => false,
+			'orderby' => 'album_order'
 		));
 
 //		function usort_reorder( $a, $b ) {
@@ -117,7 +119,7 @@ class KokenSyncAlbumsTable extends WP_List_Table {
 				$synced = $album->synced_time == '0000-00-00 00:00:00' ? false : true;
 				$published = $album->status == 'published' ? true : false;
 
-				echo '<tr data-album-id="' . $album->album_id . '">';
+				echo '<tr id="' . $album->album_id . '" data-album-id="' . $album->album_id . '">';
 
 				foreach ( $columns as $column_name => $column_display_name ) {
 
@@ -129,6 +131,13 @@ class KokenSyncAlbumsTable extends WP_List_Table {
 					$attributes = $class . $style;
 
 					switch ( $column_name ) {
+						case 'order':
+							?>
+								<td class="jquery-ui-sortable-handle">
+									<div class="dashicons dashicons-menu" style="color: #bbb;"></div>
+								</td>
+							<?php
+							break;
 						case 'title':
 							?>
 								<td <?php echo $attributes ?>>

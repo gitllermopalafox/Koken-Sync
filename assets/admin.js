@@ -10,6 +10,9 @@
 		
 		this.options = $.extend( true, {}, this.settings, options );
 
+		// table row sorting
+		this.rowSorting();
+
 		// sync albums
 		this.refreshAlbums();
 
@@ -18,6 +21,40 @@
 
 		// status select
 		this.statusSelect();
+	};
+
+	/**
+	 * Table row sorting
+	 */
+	KokenSync.prototype.rowSorting = function () {
+
+		$('table.kokensyncalbums tbody').sortable({
+			axis: 'y',
+			handle: '.jquery-ui-sortable-handle',
+			placeholder: 'ui-state-highlight',
+			forcePlaceholderSize: true,
+			update: function ( event, ui ) {
+				var order = $(this).sortable('toArray');
+
+				var data = {
+					action: 'koken_sync_update_album_order',
+					order: order
+				};
+
+				$.ajax({
+					type: 'POST',
+					url: ajaxurl,
+					data: data,
+					error: function ( jqXHR, textStatus, errorThrown ) {
+						console.log( jqXHR, textStatus, errorThrown );
+					},
+					success: function ( response ) {
+						console.log(response);
+					}
+				});
+			}
+		}).disableSelection();
+
 	};
 
 	/**

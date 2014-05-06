@@ -37,6 +37,7 @@ class KokenSyncAdmin {
 		add_action( 'wp_ajax_koken_sync_refresh_albums', array( $this, 'ajax_refresh_albums' ) );
 		add_action( 'wp_ajax_koken_sync_sync_album', array( $this, 'ajax_sync_album' ) );
 		add_action( 'wp_ajax_koken_sync_set_album_status', array( $this, 'ajax_set_album_status' ) );
+		add_action( 'wp_ajax_koken_sync_update_album_order', array( $this, 'ajax_update_album_order' ) );
 	}
 
 	/**
@@ -82,6 +83,7 @@ class KokenSyncAdmin {
 		$screen = get_current_screen();
 
 		if ( $this->plugin_screen_hook_suffix == $screen->id ) {
+			wp_enqueue_script( 'jquery-ui-sortable' );
 			wp_enqueue_script( $this->plugin_slug . '-admin-script', plugins_url( 'assets/admin.js', __FILE__ ), array( 'jquery' ), KokenSync::VERSION );
 		}
 	}
@@ -499,6 +501,7 @@ class KokenSyncAdmin {
 	 * AJAX action: set album status
 	 */
 	public function ajax_set_album_status() {
+
 		global $wpdb;
 
 		$album_id = $_POST['albumID'];
@@ -527,9 +530,35 @@ class KokenSyncAdmin {
 	}
 
 	/**
+	 * Update album order
+	 */
+	public function ajax_update_album_order() {
+
+		global $wpdb;
+
+		$order = $_POST['order'];
+
+		$album_ids = array_keys( $order );
+
+		$album_data = array();
+
+		foreach ( $order as $key => $value ) {
+			$album_data[] = '(' . $value . ', ' . $key . ')';
+		}
+
+		$order_query = $wpdb->query("
+			INSERT INTO " . KokenSync::table_name('albums') . " (album_id, album_order) VALUES " . implode(',', $album_data) . "
+			ON DUPLICATE KEY UPDATE
+				album_order = VALUES(album_order)
+		");
+
+		die();
+	}
+
+	/**
 	 * Send a message to an AJAX action
 	 */
-	function ajax_message( $args = array() ) {
+	public function ajax_message( $args = array() ) {
 
 		extract( wp_parse_args( $args, array(
 			'type' => 'message'
@@ -588,5 +617,6 @@ class KokenSyncAdmin {
 
 	    return is_null($decoded) ? $output : $decoded;
 	}
+	
 
 }
