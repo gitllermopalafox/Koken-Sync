@@ -71,22 +71,6 @@ class KokenSyncAlbumsTable extends WP_List_Table {
 			'status' => false,
 			'orderby' => 'album_order'
 		));
-
-//		function usort_reorder( $a, $b ) {
-//
-//			// if no sort, default to title
-//			$orderby = ( ! empty( $_REQUEST['orderby'] ) ) ? $_REQUEST['orderby'] : 'last_updated';
-//
-//			// if no order, default to DESC
-//			$order = ( ! empty( $_REQUEST['order'] ) ) ? $_REQUEST['order'] : 'desc';
-//
-//			// determine sort order 
-//			$result = strcmp( $a[ $orderby ], $b[ $orderby ] );
-//
-//			// send final sort direction to usort
-//			return ( $order === 'asc' ) ? $result : -$result;
- //		}
- //		usort( $data, 'usort_reorder' );	
  		
  		$current_page = $this->get_pagenum();
 
@@ -103,23 +87,23 @@ class KokenSyncAlbumsTable extends WP_List_Table {
  		) );
 	}
 
-	//function display_rows() {
-		//$albums = $this
-	//}
-
 	function display_rows() {
 		$albums = $this->items;
 
 		list( $columns, $hidden ) = $this->get_column_info();
 
+		$count = 0;
+
 		if ( !empty( $albums ) ) {
 
 			foreach ( $albums as $album ) {
 
+				$alternate_class = $count % 2 ? '': 'alternate';
+
 				$synced = $album->synced_time == '0000-00-00 00:00:00' ? false : true;
 				$published = $album->status == 'published' ? true : false;
 
-				echo '<tr id="' . $album->album_id . '" data-album-id="' . $album->album_id . '">';
+				echo '<tr class="' . $alternate_class . '" id="' . $album->album_id . '" data-album-id="' . $album->album_id . '">';
 
 				foreach ( $columns as $column_name => $column_display_name ) {
 
@@ -141,11 +125,7 @@ class KokenSyncAlbumsTable extends WP_List_Table {
 						case 'title':
 							?>
 								<td <?php echo $attributes ?>>
-									<?php if ( $synced && $published ) : ?>
-										<a target="_new" href="<?php echo home_url() ?>/portfolio/<?php echo $album->slug ?>/"><?php echo $album->title ?></a>
-									<?php else : ?>
-										<?php echo $album->title ?>
-									<?php endif ?>
+									<span class="row-title"><?php echo $album->title ?></span>
 								</td>
 							<?php
 							break;
@@ -193,6 +173,8 @@ class KokenSyncAlbumsTable extends WP_List_Table {
 				}
 
 				echo '</tr>';
+
+				$count++;
 
 			}
 

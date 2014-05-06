@@ -1,0 +1,17 @@
+.ui-sortable-helper {
+	background: rgba(255,255,255,0.8);
+	outline: 1px solid #ddd;
+}
+
+.jquery-ui-sortable-handle {
+	cursor: pointer;
+}
+
+.ui-state-highlight {
+	background: rgba(0,0,0,0.25);
+}
+
+.ui-sortable-helper th.column-order,
+.kokensyncalbums th.column-order {
+	width: 45px;
+}

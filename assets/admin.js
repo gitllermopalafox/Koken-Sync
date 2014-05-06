@@ -28,10 +28,18 @@
 	 */
 	KokenSync.prototype.rowSorting = function () {
 
+		var fixHelper = function ( e, ui ) {
+			ui.children().each( function () {
+				$(this).width( $(this).width() );
+			} );
+			return ui;
+		};
+
 		$('table.kokensyncalbums tbody').sortable({
 			axis: 'y',
 			handle: '.jquery-ui-sortable-handle',
 			placeholder: 'ui-state-highlight',
+			helper: fixHelper,
 			forcePlaceholderSize: true,
 			update: function ( event, ui ) {
 				var order = $(this).sortable('toArray');
