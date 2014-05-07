@@ -94,7 +94,7 @@ class KokenSyncSettings {
 			'koken_sync_general_settings_section',
 
 			// Title displayed on administration page
-			'Koken Sync Settings',
+			'General settings',
 
 			// Callback used to render the description of the section
 			array( $this, 'general_settings_section_description' ),
