@@ -13,12 +13,6 @@ class KokenSyncAdmin {
 	protected $plugin_screen_hook_suffix = null;
 
 	/**
-	 * WordPressSettingsFramework
-	 */
-	//private $plugin_path;
-	//private $wpsf;
-
-	/**
 	 * Initialize plugin
 	 */
 	private function __construct() {
@@ -26,15 +20,6 @@ class KokenSyncAdmin {
 		$this->koken_sync = KokenSync::get_instance();
 		$this->plugin_slug = $this->koken_sync->get_plugin_slug();
 		$this->plugin_path = $this->koken_sync->get_plugin_path();
-
-		/**
-		 * Create a new instance of WordPressSettingsFramework
-		 */
-		//require_once( 'lib/wp-settings-framework.php' );
-		//$this->wpsf = new WordPressSettingsFramework( $this->plugin_path . 'koken-sync-settings.php' );
-
-		// Add settings validation filter
-		//add_filter( $this->wpsf->get_option_group() . '_settings_validate', array( $this, 'validate_settings' ) );
 
 		/**
 		 * Load admin styles and scripts
@@ -172,10 +157,10 @@ class KokenSyncAdmin {
 			$album_fields = array(
 				'album_id' => $album->id,
 				'time' => current_time('mysql'),
-				'title' => esc_sql( $album->title ),
+				'title' => esc_sql( esc_attr( $album->title ) ),
 				'slug' => $album->slug,
-				'summary' => esc_sql( $album->summary ),
-				'description' => esc_sql( $album->description ),
+				'summary' => esc_sql( esc_attr( $album->summary ) ),
+				'description' => esc_sql( esc_attr( $album->description ) ),
 				'image_count' => $album->counts->total,
 				'modified' => $album->modified_on->datetime
 			);
@@ -280,9 +265,9 @@ class KokenSyncAdmin {
 			$image_fields = array(
 				'image_id' => $image->id,
 				'time' => $current_time,
-				'title' => esc_sql( $image->title ),
+				'title' => esc_sql( esc_attr( $image->title ) ),
 				'slug' => $image->slug,
-				'caption' => esc_sql( $image->caption ),
+				'caption' => esc_sql( esc_attr( $image->caption ) ),
 				'visibility' => $image->visibility->raw,
 				'modified' => $image->modified_on->datetime,
 				'cache_path' => esc_sql( serialize( $image->cache_path ) )
