@@ -42,13 +42,6 @@ class KokenSyncAlbumsTable extends WP_List_Table {
 		return $columns;
 	}
 
-	//function get_sortable_columns() {
-	//	$sortable_columns = array(
-	//		'title' => array('title', false),
-	//	);
-	//	return $sortable_columns;
-	//}
-
 	function extra_tablenav($which) {
 
 		if ( $which == 'top' ) {
@@ -98,7 +91,8 @@ class KokenSyncAlbumsTable extends WP_List_Table {
 
 			foreach ( $albums as $album ) {
 
-				$alternate_class = $count % 2 ? '': 'alternate';
+				$alternate_class = '';
+				//$alternate_class = $count % 2 ? '': 'alternate';
 
 				$synced = $album->synced_time == '0000-00-00 00:00:00' ? false : true;
 				$published = $album->status == 'published' ? true : false;

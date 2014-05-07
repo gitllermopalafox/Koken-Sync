@@ -30,7 +30,8 @@ add_action( 'plugins_loaded', array( 'KokenSync', 'get_instance' ) );
 if ( is_admin() ) {
 
 	require_once( plugin_dir_path( __FILE__ ) . 'class-koken-sync-admin.php' );
+	require_once( plugin_dir_path( __FILE__ ) . 'class-koken-sync-settings.php' );
 
 	add_action( 'plugins_loaded', array( 'KokenSyncAdmin', 'get_instance' ) );
-
+	add_action( 'plugins_loaded', array( 'KokenSyncSettings', 'get_instance' ) );
 }

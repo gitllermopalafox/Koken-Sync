@@ -13,12 +13,28 @@ class KokenSyncAdmin {
 	protected $plugin_screen_hook_suffix = null;
 
 	/**
+	 * WordPressSettingsFramework
+	 */
+	//private $plugin_path;
+	//private $wpsf;
+
+	/**
 	 * Initialize plugin
 	 */
 	private function __construct() {
 
 		$this->koken_sync = KokenSync::get_instance();
 		$this->plugin_slug = $this->koken_sync->get_plugin_slug();
+		$this->plugin_path = $this->koken_sync->get_plugin_path();
+
+		/**
+		 * Create a new instance of WordPressSettingsFramework
+		 */
+		//require_once( 'lib/wp-settings-framework.php' );
+		//$this->wpsf = new WordPressSettingsFramework( $this->plugin_path . 'koken-sync-settings.php' );
+
+		// Add settings validation filter
+		//add_filter( $this->wpsf->get_option_group() . '_settings_validate', array( $this, 'validate_settings' ) );
 
 		/**
 		 * Load admin styles and scripts
@@ -29,7 +45,7 @@ class KokenSyncAdmin {
 		/**
 		 * Add options page and menu item
 		 */
-		add_action( 'admin_menu', array( $this, 'add_admin_menu' ) );
+		add_action( 'admin_menu', array( $this, 'add_admin_page' ), 99 );
 
 		/**
 		 * Register AJAX actions
@@ -91,13 +107,13 @@ class KokenSyncAdmin {
 	/**
 	 * Add options page and menu item
 	 */
-	public function add_admin_menu() {
+	public function add_admin_page() {
 
 		$this->plugin_screen_hook_suffix = add_menu_page(
-			'Koken Sync',
+			'Koken Sync Albums',
 			'Koken Sync',
 			'manage_options',
-			$this->plugin_slug,
+			'koken_sync_admin',
 			array( $this, 'display_admin_page' ),
 			'dashicons-format-gallery',
 			30

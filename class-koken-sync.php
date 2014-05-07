@@ -13,12 +13,17 @@ class KokenSync {
 	 * Koken URL
 	 * TODO: make this a setting
 	 */
-	protected $koken_url = 'http://elcontraption.com/koken';
+	protected $koken_url = null;
 
 	/**
 	 * Plugin slug
 	 */
 	protected $plugin_slug = 'koken-sync';
+
+	/**
+	 * Plugin path
+	 */
+	protected $plugin_path;
 
 	/**
 	 * Instance of this class
@@ -30,6 +35,10 @@ class KokenSync {
 	 */
 	private function __construct() {
 
+		$this->koken_url = get_option( 'koken_url' );
+
+		$this->plugin_path = plugin_dir_path( __FILE__ );
+
 	}
 
 	/**
@@ -37,6 +46,13 @@ class KokenSync {
 	 */
 	public function get_plugin_slug() {
 		return $this->plugin_slug;
+	}
+
+	/**
+	 * Return the plugin path
+	 */
+	public function get_plugin_path() {
+		return $this->plugin_path;
 	}
 
 	/**
@@ -328,108 +344,6 @@ class KokenSync {
 		}
 
 		return array_values( $collected_images );
-	}
-
-
-	/**
-	 * Get single album by id
-	 *
-	 * This is the one entry point for getting a single album
-	 * By default it returns synced, published albums
-	 */
-	public static function get_album( $args = array() ) {
-
-		global $wpdb;
-
-		extract( wp_parse_args( $args, array(
-			'id' => null,
-			'slug' => null,
-			'synced' => true,
-			'status' => 'published'
-		) ) );
-
-		// either $id or $slug must be present
-		if ( !$id && !$slug ) {
-			return false;
-		}
-
-		$query = "SELECT * FROM " . self::table_name('albums') . " WHERE ";
-		$param = '';
-
-		if ( $id ) {
-			$query .= "album_id = %d ";
-			$param = $id;
-		} else {
-			$query .= "slug = %s ";
-			$param = $slug;
-		}
-
-		$query .= "AND status = 'published'";
-
-		return $wpdb->get_row( $wpdb->prepare( $query, $param ) );
-	}
-
-	/**
-	 * Get album images
-	 */
-	public static function get_album_images( $args = array() ) {
-		
-		global $wpdb;
-
-		extract( wp_parse_args( $args, array(
-			'id' => null,
-			'slug' => null
-		) ) );
-
-		$images = array();
-		$image_ids = array();
-
-		// get album
-		$album = KokenSync::get_album(array(
-			'id' => $id,
-			'slug' => $slug
-		));
-
-		// check that album is published
-		if ( $album->status !== 'published' ) {
-			return false;
-		}
-
-		// get images
-		$image_query = $wpdb->get_results( $wpdb->prepare("
-			SELECT images.*
-			FROM " . self::table_name('albums_images') . " albums_images
-			INNER JOIN " . self::table_name('images') . " images
-			ON albums_images.image_id = images.image_id
-			WHERE albums_images.album_id = %d
-		", $album->album_id ) );
-
-		foreach ( $image_query as $image ) {
-			$image_ids[] = $image->image_id;
-		}
-
-		// get keywords
-		$keywords = $wpdb->get_results("
-			SELECT keywords_images.image_id, keywords.slug, keywords.keyword
-			FROM " . self::table_name('keywords_images') . " keywords_images
-			INNER JOIN " . self::table_name('keywords') . " keywords
-			ON keywords.keyword_id = keywords_images.keyword_id
-		");
-
-		$image_keywords = array();
-		foreach ( $keywords as $keyword ) {
-			$image_keywords[ $keyword->image_id ][] = array(
-				'slug' => $keyword->slug,
-				'keyword' => $keyword->keyword
-			);
-		}
-
-		foreach ( $image_query as $image ) {
-			$image->keywords = $image_keywords[ $image->image_id ];
-			$images[] = $image;
-		}
-
-		return $images;
 	}
 
 	/**
