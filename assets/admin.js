@@ -137,7 +137,7 @@
 			var $button = $(this).find( '.KokenSyncAlbum' ),
 				buttonValue = $button.text(),
 				$message = $(this).find('.KokenSyncAlbumMessage'),
-				albumID = $(this).attr('data-album-id');
+				albumID = $button.data('album-id');
 
 			// check in to currentlySyncing
 			currentlySyncing.push( albumID );
@@ -202,7 +202,7 @@
 		$rows.each( function () {
 
 			var $select = $(this).find('.KokenSyncStatusSelect'),
-				albumID = $(this).attr('data-album-id'),
+				albumID = $select.data('album-id'),
 				statusValue;
 
 			$select.on( 'change', function () {

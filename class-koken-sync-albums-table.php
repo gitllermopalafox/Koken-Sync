@@ -10,18 +10,30 @@ if (!class_exists('WP_List_Table')) {
 /**
  * KokenSyncAlbumsTable Class
  */
-class KokenSyncAlbumsTable extends WP_List_Table {
-
-	function __construct() {
-
+class KokenSyncAlbumsTable extends WP_List_Table 
+{
+	function __construct() 
+    {
 		parent::__construct( array(
 			'singular' => 'kokensyncalbum',
 			'plural' => 'kokensyncalbums'
 		) );
 	}
 
-	function column_default($item, $column_name) {
+    function get_columns() 
+    {
+        $columns = array(
+            'order' => __( 'Order' ),
+            'title' => __( 'Album title' ),
+            'images' => __( 'Images' ),
+            'sync' => __( 'Sync' ),
+            'status' => __( 'Status' )
+        );
+        return $columns;
+    }
 
+	function column_default($item, $column_name) 
+    {
 		switch ( $column_name ) {
 			case 'modified_on':
 				return $item->modified_on->datetime;
@@ -31,27 +43,17 @@ class KokenSyncAlbumsTable extends WP_List_Table {
 		}
 	}
 
-	function get_columns() {
-		$columns = array(
-			'order' => __( 'Order' ),
-			'title' => __( 'Album title' ),
-			'images' => __( 'Images' ),
-			'sync' => __( 'Sync' ),
-			'status' => __( 'Status' )
-		);
-		return $columns;
-	}
-
-	function extra_tablenav($which) {
-
+	function extra_tablenav($which) 
+    {
 		if ( $which == 'top' ) {
 			?>
-				<button id="KokenSyncSyncAlbums">Refresh albums</button>
+				<button class="button button-primary" id="KokenSyncSyncAlbums">Refresh albums</button>
 			<?
 		}
 	}
 
-	function prepare_items() {
+	function prepare_items() 
+    {
 		$per_page = 20;
 		$columns = $this->get_columns();
 		$hidden = array();
@@ -80,100 +82,55 @@ class KokenSyncAlbumsTable extends WP_List_Table {
  		) );
 	}
 
-	function display_rows() {
-		$albums = $this->items;
+    function column_order($item)
+    {
+        ?>
+            <div class="jquery-ui-sortable-handle">
+                <div class="dashicons dashicons-menu" style="color: #bbb;"></div>
+            </div>
+        <?php
+    }
 
-		list( $columns, $hidden ) = $this->get_column_info();
+    function column_title($item)
+    {
+        ?>
+            <span class="row-title"><?php echo $item->title ?></span>
+        <?php
+    }
 
-		$count = 0;
+    function column_images($item)
+    {
+        echo $item->image_count;
+    }
 
-		if ( !empty( $albums ) ) {
+    function column_sync($item)
+    {
+        $synced = $item->synced_time == '0000-00-00 00:00:00' ? false : true;
 
-			foreach ( $albums as $album ) {
+        if ($item->image_count > 0) {
+            echo '<button href="#" class="button button-primary KokenSyncButton KokenSyncAlbum" data-album-id="' . $item->album_id .'">Sync now</button>';
 
-				$alternate_class = '';
-				//$alternate_class = $count % 2 ? '': 'alternate';
+            if ($synced) {
+                echo '<br /><small class="KokenSyncAlbumMessage">Synced: ' . $item->synced_time . '</small>';
+            }
 
-				$synced = $album->synced_time == '0000-00-00 00:00:00' ? false : true;
-				$published = $album->status == 'published' ? true : false;
+        } else {
+            echo '<button disabled>No images</button>';
+            echo '<br /><small>Add images via Koken</small>';
+        }
+    }
 
-				echo '<tr class="' . $alternate_class . '" id="' . $album->album_id . '" data-album-id="' . $album->album_id . '">';
-
-				foreach ( $columns as $column_name => $column_display_name ) {
-
-					$class = "class='$column_name column-$column_name'";
-					$style = "";
-					if (in_array($column_name, $hidden)) {
-						$style = '"display: none;"';
-					}
-					$attributes = $class . $style;
-
-					switch ( $column_name ) {
-						case 'order':
-							?>
-								<td class="jquery-ui-sortable-handle">
-									<div class="dashicons dashicons-menu" style="color: #bbb;"></div>
-								</td>
-							<?php
-							break;
-						case 'title':
-							?>
-								<td <?php echo $attributes ?>>
-									<span class="row-title"><?php echo $album->title ?></span>
-								</td>
-							<?php
-							break;
-						case 'images':
-							?>
-								<td <?php echo $attributes ?>>
-									<?php echo $album->image_count ?>
-								</td>
-							<?php
-							break;
-						case 'sync':
-							?>
-								<td <?php echo $attributes ?>>
-									<?php if ( $album->image_count > 0 ) : ?>
-										<button href="#" class="KokenSyncButton KokenSyncAlbum">Sync now</button>
-		
-										<?php if ( $synced ) : ?>
-											<br /><small class="KokenSyncAlbumMessage">Synced: <?php echo $album->synced_time ?></small>
-										<?php else : ?>
-											<br /><small class="KokenSyncAlbumMessage">Never synced</small>
-										<?php endif ?>
-
-									<?php else : ?>
-										<button disabled>No images</button>
-										<br /><small>Add images via Koken</small>
-									<?php endif ?>
-								</td>
-							<?php
-							break;
-						case 'status':
-							?>
-								<td <?php echo $attributes ?>>
-
-									<select<?php if ( !$synced ) echo ' disabled' ?> class="KokenSyncStatusSelect">
-										<option value="unpublished"<?php if ( $album->status == 'unpublished' ) echo ' selected' ?>>Unpublished</option>
-										<option value="published"<?php if ( $album->status == 'published' ) echo ' selected' ?>>Published</option>
-										<!--<option value="protected"<?php if ( $album->status == 'protected' ) echo ' selected' ?>>Protected</option>-->
-									</select>
-
-								</td>
-							<?php
-							break;
-					}
-
-				}
-
-				echo '</tr>';
-
-				$count++;
-
-			}
-
-		}
-	}
+    function column_status($item)
+    {
+        $synced = $item->synced_time == '0000-00-00 00:00:00' ? false : true;
+        ?>
+            <select<?php if (!$synced) echo ' disabled' ?> class="KokenSyncStatusSelect" data-album-id="<?php echo $item->album_id ?>">
+                <option value="unpublished"<?php if ($item->status == 'unpublished') echo ' selected' ?>>Unpublished</option>
+                <option value="published"<?php if ($item->status == 'published') echo ' selected' ?>>Published</option>
+                <!--<option value="protected"<?php if ($item->status == 'protected') echo ' selected' ?>>Protected</option>-->
+            </select>
+        <?php
+    }
 
 
 }
