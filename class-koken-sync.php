@@ -391,4 +391,12 @@ class KokenSync {
 		return $url;
 	}
 
+    /**
+     * Returns keywords
+     */
+    static function get_keywords()
+    {
+        
+    }
+
 }

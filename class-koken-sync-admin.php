@@ -599,7 +599,7 @@ class KokenSyncAdmin {
 		$base = $this->koken_sync->get_koken_url() .'/api.php';
 
 		$ch = curl_init();
-	    curl_setopt($ch, CURLOPT_FOLLOWLOCATION, TRUE);
+	    //curl_setopt($ch, CURLOPT_FOLLOWLOCATION, TRUE);
 	    curl_setopt($ch, CURLOPT_MAXREDIRS, 10);
 	    curl_setopt($ch, CURLOPT_URL, $base . $url);
 	    curl_setopt($ch, CURLOPT_CUSTOMREQUEST, "GET");
