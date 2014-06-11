@@ -132,5 +132,15 @@ class KokenSyncAlbumsTable extends WP_List_Table
         <?php
     }
 
+    function single_row( $item )
+    {
+        static $row_class = '';
+        $row_class = ( $row_class == '' ? ' class="alternate"' : '' );
+
+        echo '<tr' . $row_class . ' id="' . $item->album_id . '">';
+        $this->single_row_columns( $item );
+        echo '</tr>';
+    }
+
 
 }
