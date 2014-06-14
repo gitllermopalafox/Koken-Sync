@@ -255,7 +255,6 @@ class KokenSync {
 			'album_slug' => NULL,
 
 			// Get specific images
-			'image_id' => NULL,
 			'image_slug' => NULL,
 
 			// Eager load associations: array('albums', 'keywords')
@@ -283,15 +282,10 @@ class KokenSync {
 			$params[] = $album_slug;
 		}
 
-//		if ( $image_id ) {
-//			$query .= " AND images.image_id = %d";
-//			$params[] = $image_id;
-//		}
-//
-//		if ( ! $image_id && $image_slug ) {
-//			$query .= " AND images.image_slug = %s";
-//			$params[] = $image_slug;
-//		}
+        if ( $image_slug ) {
+            $query .= " AND images.slug = %s";
+            $params[] = $image_slug;
+        }
 
 		if ( ! empty( $params ) ) {
 			$query = $wpdb->prepare( $query, implode(',', $params) );
