@@ -140,6 +140,7 @@ class KokenSync {
 					CREATE TABLE " . self::table_name('albums_images') . " (
 					album_id bigint NOT NULL,
 					image_id bigint NOT NULL,
+                    sort_order bigint NOT NULL,
 					PRIMARY KEY  (album_id,image_id)
 				);"
 			),
@@ -199,6 +200,44 @@ class KokenSync {
 		return $wpdb->prefix . 'koken_sync_' . $name;
 	}
 
+    /**
+     * Get single album by id
+     */
+    public static function get_album( $args = array() )
+    {
+        global $wpdb;
+
+        extract( wp_parse_args( $args, array(
+            'album_id' => null,
+            'album_slug' => null
+        ) ) );
+
+        if ( is_null( 'album_id' ) && is_null( 'album_slug' ) ) {
+            return false;
+        }
+
+        // Build query
+        $query = "SELECT * FROM " . self::table_name( 'albums' ) . " albums";
+
+        // Query by album id
+        if ( $album_id ) {
+            $query .= " WHERE albums.album_id = %d";
+            $params[] = $album_id;
+        }
+
+        // Query by album slug
+        if ( ! $album_id && $album_slug ) {
+            $query .= " WHERE albums.slug = %s";
+            $params[] = $album_slug;
+        }
+
+        if ( ! empty( $params ) ) {
+            $query = $wpdb->prepare( $query, implode(',', $params) );
+        }
+
+        return $wpdb->get_row( $query );
+    }
+
 	/**
 	 * Get albums
 	 */
@@ -247,7 +286,7 @@ class KokenSync {
 		global $wpdb;
 
 		extract( wp_parse_args( $args, array(
-			'orderby' => 'image_id',
+			'orderby' => 'sort_order',
 			'order' => 'ASC',
 
 			// Get images from specific album
@@ -287,6 +326,10 @@ class KokenSync {
             $params[] = $image_slug;
         }
 
+        if ( $orderby ) {
+            $query .= " ORDER BY {$orderby} {$order}";
+        }
+
 		if ( ! empty( $params ) ) {
 			$query = $wpdb->prepare( $query, implode(',', $params) );
 		}
@@ -295,7 +338,7 @@ class KokenSync {
 		$images = $wpdb->get_results( $query );
 
 		if ( empty( $images ) ) {
-			return;
+			return false;
 		}
 
 		// Eager load associations?
@@ -388,9 +431,31 @@ class KokenSync {
     /**
      * Returns keywords
      */
-    static function get_keywords()
+    static function get_keywords( $args = array() )
     {
-        
+        global $wpdb;
+
+        extract( wp_parse_args( $args, array(
+            'show_empty' => false
+        ) ) );
+
+        $query = "
+            SELECT DISTINCT keywords.*
+            FROM " . self::table_name( 'albums' ) . " albums
+            INNER JOIN " . self::table_name( 'albums_images' ) . " albums_images
+            ON albums.album_id = albums_images.album_id
+            INNER JOIN " . self::table_name( 'keywords_images' ) . " keywords_images
+            ON albums_images.image_id = keywords_images.image_id
+            INNER JOIN " . self::table_name( 'keywords' ) . " keywords
+            ON keywords_images.keyword_id = keywords.keyword_id
+        ";
+
+        if ( ! $show_empty ) {
+            $query .= "WHERE albums.status = 'published'";
+        }
+
+        // Run query
+        return $wpdb->get_results( $query );
     }
 
 }

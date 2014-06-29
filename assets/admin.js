@@ -98,6 +98,9 @@
 				},
 				success: function ( response ) {
 
+                    //console.log(response);
+                    //return;
+
 					var response = $.parseJSON( response );
 
 					if ( response.type === 'error' ) {
@@ -159,6 +162,9 @@
 					return;
 				},
 				success: function ( response ) {
+
+                    //console.log(response);
+                    //return;
 
 					var response = $.parseJSON( response );
 

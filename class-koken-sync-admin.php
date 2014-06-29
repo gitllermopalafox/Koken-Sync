@@ -207,7 +207,7 @@ class KokenSyncAdmin {
 	/**
 	 * AJAX action: sync single album
 	 *
-	 * TODO: tame this dirty beast.
+	 * TODO: tame this beast.
 	 */
 	public function ajax_sync_album() {
 
@@ -256,6 +256,8 @@ class KokenSyncAdmin {
 			$koken_data = array_merge( $data->content, $koken_data );
 		}
 
+        $count = 0;
+
 		foreach ( $koken_data as $image ) {
 
 			// keep track of synced images
@@ -276,7 +278,8 @@ class KokenSyncAdmin {
 			// set up album/image relationship fields
 			$albums_images_fields = array(
 				'album_id' => $album_id,
-				'image_id' => $image->id
+				'image_id' => $image->id,
+                'sort_order' => $count
 			);
 
 			foreach ( $image->tags as $keyword ) {
@@ -295,6 +298,8 @@ class KokenSyncAdmin {
 			// collect image data
 			$image_data[] = '("' . join('", "', $image_fields) . '")';
 			$albums_images_data[] = '("' . join('", "', $albums_images_fields) . '")';
+
+            $count++;
 		}
 
 		$image_cols = array_keys( $image_fields );
@@ -329,7 +334,8 @@ class KokenSyncAdmin {
 			INSERT INTO " . $albums_images_table . " (" . implode(',', $albums_images_cols) . ") VALUES" . implode(',', $albums_images_data) . "
 			ON DUPLICATE KEY UPDATE
 				album_id = album_id,
-				image_id = image_id
+				image_id = image_id,
+                sort_order = sort_order
 		");
 
 		if ( $albums_images_query === false ) {
