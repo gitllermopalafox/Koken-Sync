@@ -158,7 +158,7 @@ class KokenSyncAdmin {
 				'album_id' => $album->id,
 				'time' => current_time('mysql'),
 				'title' => esc_sql( esc_attr( $album->title ) ),
-				'slug' => $album->slug,
+				'slug' => sanitize_title_with_dashes( $album->title ),
 				'summary' => esc_sql( esc_attr( $album->summary ) ),
 				'description' => esc_sql( esc_attr( $album->description ) ),
 				'image_count' => $album->counts->total,
