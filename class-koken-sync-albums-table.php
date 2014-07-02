@@ -3,8 +3,8 @@
 /**
  * Require parent class
  */
-if (!class_exists('WP_List_Table')) {
-	require_once(ABSPATH . 'wp-admin/includes/class-wp-list-table.php');
+if ( !class_exists('WP_List_Table') ) {
+	require_once ABSPATH . 'wp-admin/includes/class-wp-list-table.php';
 }
 
 /**
@@ -32,7 +32,7 @@ class KokenSyncAlbumsTable extends WP_List_Table
         return $columns;
     }
 
-	function column_default($item, $column_name) 
+	function column_default( $item, $column_name ) 
     {
 		switch ( $column_name ) {
 			case 'modified_on':
@@ -43,12 +43,12 @@ class KokenSyncAlbumsTable extends WP_List_Table
 		}
 	}
 
-	function extra_tablenav($which) 
+	function extra_tablenav( $which ) 
     {
 		if ( $which == 'top' ) {
 			?>
 				<button class="button button-primary" id="KokenSyncSyncAlbums">Refresh albums</button>
-			<?
+			<?php
 		}
 	}
 

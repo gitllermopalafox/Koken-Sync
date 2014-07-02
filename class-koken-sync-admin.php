@@ -111,14 +111,14 @@ class KokenSyncAdmin {
 	public function display_admin_page() {
 
 		// Include admin albums table
-		include_once( 'class-koken-sync-albums-table.php' );
+		require_once 'class-koken-sync-albums-table.php';
 
 		// Initialize the albums table and prepare items
 		$albums_table = new KokenSyncAlbumsTable();
 		$albums_table->prepare_items();
 
 		// Include admin page
-		include_once( 'views/admin.php' );
+		require_once 'views/admin.php';
 	}
 
 	/**
