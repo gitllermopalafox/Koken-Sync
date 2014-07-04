@@ -300,6 +300,9 @@ class KokenSync {
 			'load' => array()
 		) ) );
 
+        // If album slug is 'all', assign null
+        $album_slug = $album_slug == 'all' ? NULL : $album_slug; 
+
 		$query = "
 			SELECT DISTINCT images.* 
 			FROM " . self::table_name('images') . " images
