@@ -333,6 +333,7 @@ class KokenSync {
             $query .= " ORDER BY {$orderby} {$order}";
         }
 
+        // Prepare params
 		if ( ! empty( $params ) ) {
 			$query = $wpdb->prepare( $query, implode(',', $params) );
 		}

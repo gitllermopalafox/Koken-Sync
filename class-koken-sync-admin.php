@@ -335,7 +335,7 @@ class KokenSyncAdmin {
 			ON DUPLICATE KEY UPDATE
 				album_id = album_id,
 				image_id = image_id,
-                sort_order = sort_order
+                sort_order = VALUES(sort_order)
 		");
 
 		if ( $albums_images_query === false ) {
